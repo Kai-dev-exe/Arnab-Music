@@ -20,10 +20,10 @@ module.exports = {
   "secure": false
 },
 {
-  "identifier": "Public Lavalink v4 NonSSL",
-  "password": "https://dsc.gg/ajidevserver",
-  "host": "lava-v4.ajieblogs.eu.org",
-  "port": 80,
+  "identifier": "ChalresNaig Node",
+  "password": "NAIGLAVA-dash.techbyte.host",
+  "host": "lavahatry4.techbyte.host",
+  "port": 3000,
   "secure": false
 }
   ]
