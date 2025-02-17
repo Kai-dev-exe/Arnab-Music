@@ -18,13 +18,6 @@ module.exports = {
   "host": "lava.inzeworld.com",
   "port": 3128,
   "secure": false
-},
-{
-  "identifier": "ChalresNaig Node",
-  "password": "NAIGLAVA-dash.techbyte.host",
-  "host": "lavahatry4.techbyte.host",
-  "port": 3000,
-  "secure": false
 }
   ]
 }
