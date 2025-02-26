@@ -14,27 +14,13 @@ module.exports = {
   embedTimeout: 5, 
   errorLog: "", 
   nodes: [
+    
     {
-      "identifier": "Catfein ID",
-      "password": "catfein",
-      "host": "lava.catfein.com",
-      "port": 4000,
-      "secure": false
-    },
-    {
-      name: "INZEWORLD.COM (DE)",
-      password: "saher.inzeworld.com",
-      host: "lava.inzeworld.com",
-      port:  3128,
+      name: "ARNAB LAVALINK",
+      password: "arnab2345",
+      host: "180.188.226.76",
+      port:  5405,
       secure: false
-    },
-    {
-      "identifier": "ChalresNaig Node",
-      "password": "NAIGLAVA-dash.techbyte.host",
-      "host": "lavahatry4.techbyte.host",
-      "port": 3000,
-      "secure": false
     }
-  ]
 
 }
