@@ -17,7 +17,7 @@ module.exports = {
   errorLog: "", 
   nodes: [
      {
-      name: "ARNAB LAVALINK",
+      name: "edge.railway.app",
       password: "arnab2345",
       host: "https://lavalink-v1-production.up.railway.app",
       port:  6434,
