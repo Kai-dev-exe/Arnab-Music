@@ -19,8 +19,8 @@ module.exports = {
      {
       name: "ARNAB LAVALINK",
       password: "arnab2345",
-      host: "180.188.226.76",
-      port:  5405,
+      host: "https://lavalink-v1-production.up.railway.app",
+      port:  6434,
       secure: false
     }
   ]
