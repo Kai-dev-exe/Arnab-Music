@@ -17,10 +17,10 @@ module.exports = {
   errorLog: "", 
   nodes: [
      {
-      name: "edge.railway.app",
-      password: "arnab2345",
-      host: "https://lavalink-v1-production.up.railway.app",
-      port:  6434,
+      name: "INZEWORLD.COM (DE)",
+      password: "saher.inzeworld.com",
+      host: "lava.inzeworld.com",
+      port:  3182,
       secure: false
     }
   ]
