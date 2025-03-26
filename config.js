@@ -18,9 +18,9 @@ module.exports = {
   nodes: [
      {
       name: "LavalinkHub",
-      password: "https://discord.gg/VGMhhY7AAD",
-      host: "69.30.219.178",
-      port:  9781,
+      password: "catfein",
+      host: "lava-sg.catfein.co.id",
+      port:  5000,
       secure: false
     }
   ]
