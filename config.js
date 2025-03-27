@@ -17,10 +17,10 @@ module.exports = {
   errorLog: "", 
   nodes: [
      {
-      name: "LavalinkHub",
-      password: "catfein",
-      host: "lava-sg.catfein.co.id",
-      port:  5000,
+      name: "Arnab Lavalink",
+      password: "arnab2345",
+      host: "193.226.78.187",
+      port:  5863,
       secure: false
     }
   ]
