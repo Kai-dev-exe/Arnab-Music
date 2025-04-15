@@ -19,8 +19,8 @@ module.exports = {
      {
       name: "Arnab Lavalink",
       password: "arnab2345",
-      host: "193.226.78.187",
-      port:  5863,
+      host: "deka.pylex.software",
+      port:  9739,
       secure: false
     }
   ]
