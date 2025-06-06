@@ -76,9 +76,25 @@ function initializePlayer(client) {
 
         // Clean up previous track messages for this guild
         await cleanupPreviousTrackMessages(channel, guildId);
+        
+        // Update voice channel status with current song
+        try {
+            const guild = client.guilds.cache.get(guildId);
+            const voiceChannel = guild.channels.cache.get(player.voiceChannel);
+            if (voiceChannel) {
+                let songTitle = track.info.title;
+                if (songTitle.length > 30) {
+                    songTitle = songTitle.substring(0, 27) + '...';
+                }
+                await updateVoiceChannelStatus(client, voiceChannel.id, `<a:RainbowDaftPunk:1380446312134348902> ${songTitle}`);
+            }
+        } catch (error) {
+            console.error("Error updating voice channel status:", error.message);
+        }
 
         try {
-            const musicard = await Dynamic({
+            const { Classic } = require('musicard');
+            const musicard = await Classic({
                 thumbnailImage: track.info.thumbnail || 'https://example.com/default_thumbnail.png',
                 backgroundColor: '#070707',
                 progress: 10,
@@ -88,6 +104,9 @@ function initializePlayer(client) {
                 nameColor: '#FF7A00',
                 author: track.info.author || 'Unknown Artist',
                 authorColor: '#696969',
+                startTime: '0:00',
+                endTime: formatDuration(track.info.duration),
+                timeColor: '#FF7A00'
             });
 
             // Save the generated card to a file
@@ -143,10 +162,34 @@ function initializePlayer(client) {
 
     client.riffy.on("trackEnd", async (player) => {
         await cleanupTrackMessages(client, player);
+        
+        // Reset voice channel status if no more tracks in queue
+         if (player.queue.length === 0) {
+             try {
+                 const guild = client.guilds.cache.get(player.guildId);
+                 const voiceChannel = guild.channels.cache.get(player.voiceChannel);
+                 if (voiceChannel) {
+                     await updateVoiceChannelStatus(client, voiceChannel.id, "");
+                 }
+             } catch (error) {
+                 console.error("Error resetting voice channel status:", error.message);
+             }
+         }
     });
 
     client.riffy.on("playerDisconnect", async (player) => {
         await cleanupTrackMessages(client, player);
+        
+        // Reset voice channel status when player disconnects
+        try {
+            const guild = client.guilds.cache.get(player.guildId);
+            const voiceChannel = guild.channels.cache.get(player.voiceChannel);
+            if (voiceChannel) {
+                await updateVoiceChannelStatus(client, voiceChannel.id, "");
+            }
+        } catch (error) {
+            console.error("Error resetting voice channel status:", error.message);
+        }
     });
 
     client.riffy.on("queueEnd", async (player) => {
@@ -154,6 +197,17 @@ function initializePlayer(client) {
         const guildId = player.guildId;
     
         try {
+            // Reset voice channel status when queue ends
+            try {
+                const guild = client.guilds.cache.get(guildId);
+                const voiceChannel = guild.channels.cache.get(player.voiceChannel);
+                if (voiceChannel) {
+                    await updateVoiceChannelStatus(client, voiceChannel.id, "");
+                }
+            } catch (error) {
+                console.error("Error resetting voice channel status:", error.message);
+            }
+            
             const autoplaySetting = await autoplayCollection.findOne({ guildId });
     
             if (autoplaySetting?.autoplay) {
@@ -259,7 +313,7 @@ function setupCollector(client, player, channel, message) {
             return;
         }
 
-        handleInteraction(i, player, channel);
+        handleInteraction(i, player, channel, client);
     });
 
     collector.on('end', () => {
@@ -269,7 +323,7 @@ function setupCollector(client, player, channel, message) {
     return collector;
 }
 
-async function handleInteraction(i, player, channel) {
+async function handleInteraction(i, player, channel, client) {
     switch (i.customId) {
         case 'loopToggle':
             toggleLoop(player, channel);
@@ -289,6 +343,19 @@ async function handleInteraction(i, player, channel) {
             await sendEmbed(channel, "🗑️ **Queue has been cleared!**");
             break;
         case 'stopTrack':
+            // Reset voice channel status when player is stopped
+            try {
+                const guild = channel.guild;
+                const voiceChannel = guild.channels.cache.get(player.voiceChannel);
+                if (voiceChannel) {
+                    await updateVoiceChannelStatus(client, voiceChannel.id, "");
+                }
+                player.destroy();
+                await sendEmbed(channel, "⏹️ **Player has been stopped!**");
+            } catch (error) {
+                console.error("Error resetting voice channel status:", error.message);
+            }
+            
             player.stop();
             player.destroy();
             await sendEmbed(channel, '⏹️ **Playback has been stopped and player destroyed!**');
@@ -511,4 +578,32 @@ function createActionRow2(disabled) {
         );
 }
 
-module.exports = { initializePlayer };
+/**
+ * Updates the voice channel status using Discord's API
+ * @param {Client} client - The Discord client
+ * @param {string} channelId - The voice channel ID
+ * @param {string} status - The status text to set
+ * @returns {Promise<void>}
+ */
+async function updateVoiceChannelStatus(client, channelId, status) {
+    try {
+        const token = client.token;
+        const response = await fetch(`https://discord.com/api/v9/channels/${channelId}/voice-status`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bot ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error(`Failed to update voice channel status: ${response.status} ${errorData}`);
+        }
+    } catch (error) {
+        console.error('Error updating voice channel status:', error);
+    }
+}
+
+module.exports = { initializePlayer, formatDuration, updateVoiceChannelStatus };
