@@ -63,7 +63,7 @@ function initializePlayer(client) {
     client.riffy.on("nodeConnect", node => {
         console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.green}Node ${node.name} Connected ✅${colors.reset}`);
     });
-    
+
     client.riffy.on("nodeError", (node, error) => {
         console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.red}Node ${node.name} Error ❌ | ${error.message}${colors.reset}`);
     });
@@ -76,7 +76,7 @@ function initializePlayer(client) {
 
         // Clean up previous track messages for this guild
         await cleanupPreviousTrackMessages(channel, guildId);
-        
+
         // Update voice channel status with current song
         try {
             const guild = client.guilds.cache.get(guildId);
@@ -86,7 +86,7 @@ function initializePlayer(client) {
                 if (songTitle.length > 30) {
                     songTitle = songTitle.substring(0, 27) + '...';
                 }
-                await updateVoiceChannelStatus(client, voiceChannel.id, `<a:RainbowDaftPunk:1380446312134348902> ${songTitle}`);
+                await updateVoiceChannelStatus(client, voiceChannel.id, `<a:pinkanimatedheart:1303818204912816230> ${songTitle}`);
             }
         } catch (error) {
             console.error("Error updating voice channel status:", error.message);
@@ -136,7 +136,7 @@ function initializePlayer(client) {
             const actionRow2 = createActionRow2(false);
 
             const message = await sendMessageWithPermissionsCheck(channel, embed, attachment, actionRow1, actionRow2);
-            
+
             if (message) {
                 // Store the track message for this guild
                 if (!guildTrackMessages.has(guildId)) {
@@ -162,7 +162,7 @@ function initializePlayer(client) {
 
     client.riffy.on("trackEnd", async (player) => {
         await cleanupTrackMessages(client, player);
-        
+
         // Reset voice channel status if no more tracks in queue
          if (player.queue.length === 0) {
              try {
@@ -179,7 +179,7 @@ function initializePlayer(client) {
 
     client.riffy.on("playerDisconnect", async (player) => {
         await cleanupTrackMessages(client, player);
-        
+
         // Reset voice channel status when player disconnects
         try {
             const guild = client.guilds.cache.get(player.guildId);
@@ -195,7 +195,7 @@ function initializePlayer(client) {
     client.riffy.on("queueEnd", async (player) => {
         const channel = client.channels.cache.get(player.textChannel);
         const guildId = player.guildId;
-    
+
         try {
             // Reset voice channel status when queue ends
             try {
@@ -207,12 +207,12 @@ function initializePlayer(client) {
             } catch (error) {
                 console.error("Error resetting voice channel status:", error.message);
             }
-            
+
             const autoplaySetting = await autoplayCollection.findOne({ guildId });
-    
+
             if (autoplaySetting?.autoplay) {
                 const nextTrack = await player.autoplay(player);
-    
+
                 if (!nextTrack) {
                     await cleanupTrackMessages(client, player);
                     player.destroy();
@@ -235,7 +235,7 @@ function initializePlayer(client) {
 
 async function cleanupPreviousTrackMessages(channel, guildId) {
     const messages = guildTrackMessages.get(guildId) || [];
-    
+
     for (const messageInfo of messages) {
         try {
             const fetchChannel = channel.client.channels.cache.get(messageInfo.channelId);
@@ -258,7 +258,7 @@ async function cleanupPreviousTrackMessages(channel, guildId) {
 async function cleanupTrackMessages(client, player) {
     const guildId = player.guildId;
     const messages = guildTrackMessages.get(guildId) || [];
-    
+
     for (const messageInfo of messages) {
         try {
             const channel = client.channels.cache.get(messageInfo.channelId);
@@ -355,7 +355,7 @@ async function handleInteraction(i, player, channel, client) {
             } catch (error) {
                 console.error("Error resetting voice channel status:", error.message);
             }
-            
+
             player.stop();
             player.destroy();
             await sendEmbed(channel, '⏹️ **Playback has been stopped and player destroyed!**');
@@ -418,14 +418,14 @@ async function getLyrics(trackName, artistName, duration) {
     try {
         //console.log(`🔍 Fetching lyrics for: ${trackName} - ${artistName} (${duration}s)`);
 
-      
+
         trackName = trackName
             .replace(/\b(Official|Audio|Video|Lyrics|Theme|Soundtrack|Music|Full Version|HD|4K|Visualizer|Radio Edit|Live|Remix|Mix|Extended|Cover|Parody|Performance|Version|Unplugged|Reupload)\b/gi, "") 
             .replace(/\s*[-_/|]\s*/g, " ") 
             .replace(/\s+/g, " ") 
             .trim();
 
-      
+
         artistName = artistName
             .replace(/\b(Topic|VEVO|Records|Label|Productions|Entertainment|Ltd|Inc|Band|DJ|Composer|Performer)\b/gi, "")
             .replace(/ x /gi, " & ") 
@@ -434,7 +434,7 @@ async function getLyrics(trackName, artistName, duration) {
 
         //console.log(`✅ Cleaned Data: ${trackName} - ${artistName} (${duration}s)`);
 
-        
+
         let response = await axios.get(`https://lrclib.net/api/get`, {
             params: { track_name: trackName, artist_name: artistName, duration }
         });
@@ -443,7 +443,7 @@ async function getLyrics(trackName, artistName, duration) {
             return response.data.syncedLyrics || response.data.plainLyrics;
         }
 
-       
+
         response = await axios.get(`https://lrclib.net/api/get`, {
             params: { track_name: trackName, artist_name: artistName }
         });
@@ -471,7 +471,7 @@ async function showLyrics(channel, player) {
         return;
     }
 
-    
+
     const lines = lyrics.split('\n').map(line => line.trim()).filter(Boolean);
     const songDuration = Math.floor(track.length / 1000); 
 
@@ -491,7 +491,7 @@ async function showLyrics(channel, player) {
         .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(fullButton, stopButton);
-    
+
     const message = await channel.send({ embeds: [embed], components: [row] });
 
     // Store the lyrics message
@@ -527,21 +527,21 @@ async function showLyrics(channel, player) {
 
     collector.on('collect', async i => {
         await i.deferUpdate();
-    
+
         if (i.customId === "stopLyrics") {
             clearInterval(interval);
             await message.delete();
         } else if (i.customId === "fullLyrics") {
             clearInterval(interval);
             embed.setDescription(lines.join('\n'));
-    
+
             const deleteButton = new ButtonBuilder()
                 .setCustomId("deleteLyrics")
                 .setLabel("Delete")
                 .setStyle(ButtonStyle.Danger);
-    
+
             const deleteRow = new ActionRowBuilder().addComponents(deleteButton);
-    
+
             await message.edit({ embeds: [embed], components: [deleteRow] });
         } else if (i.customId === "deleteLyrics") {
             await message.delete();
@@ -596,7 +596,7 @@ async function updateVoiceChannelStatus(client, channelId, status) {
             },
             body: JSON.stringify({ status })
         });
-        
+
         if (!response.ok) {
             const errorData = await response.text();
             console.error(`Failed to update voice channel status: ${response.status} ${errorData}`);
