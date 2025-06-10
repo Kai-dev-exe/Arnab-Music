@@ -86,7 +86,7 @@ function initializePlayer(client) {
                 if (songTitle.length > 30) {
                     songTitle = songTitle.substring(0, 27) + '...';
                 }
-                await updateVoiceChannelStatus(client, voiceChannel.id, `<a:RainbowDaftPunk:1380446312134348902> ${songTitle}`);
+                await updateVoiceChannelStatus(client, voiceChannel.id, `<a:pinkanimatedheart:1303818204912816230> ${songTitle}`);
             }
         } catch (error) {
             console.error("Error updating voice channel status:", error.message);
