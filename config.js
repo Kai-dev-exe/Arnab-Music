@@ -17,8 +17,8 @@ module.exports = {
      {
       name: "Arnab Lavalink",
       password: "arnab2345",
-      host: "meta.wisp.uno",
-      port:  11562,
+      host: "5.39.63.207",
+      port:  3730,
       secure: false
     }
   ]
