@@ -1,7 +1,6 @@
 const { MongoClient } = require('mongodb');
 const colors = require('./UI/colors/colors');
 const config = require("./config.js");
-require('dotenv').config();
 
 let client; 
 
@@ -33,9 +32,11 @@ async function connectToDatabase() {
 const db = client ? client.db("PrimeMusicSSRR") : null;
 const playlistCollection = db ? db.collection("SongPlayLists") : null;
 const autoplayCollection = db ? db.collection("AutoplaySettings") : null;
+const centralSetupCollection = db ? db.collection("CentralSetup") : null;
 
 module.exports = {
     connectToDatabase,
     playlistCollection,
     autoplayCollection,
+    centralSetupCollection,
 };

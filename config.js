@@ -1,10 +1,11 @@
 
+require('dotenv').config();
 
 module.exports = {
-  TOKEN: "",
+  TOKEN: process.env.TOKEN || "",  // Keep explicit for clarity
   language: "en",
-  ownerID: ["1004206704994566164", ""], 
-  mongodbUri : "",
+  ownerID: ["728922361340100658", ""],
+  mongodbUri : process.env.MONGODB_URI || "",  // Now from .env instead of hardcoded
   spotifyClientId : "",
   spotifyClientSecret : "",
   setupFilePath: './commands/setup.json',
@@ -17,11 +18,11 @@ module.exports = {
   errorLog: "", 
   nodes: [
      {
-      name: "",
-      password: "",
-      host: "",
-      port:  ,
-      secure: 
+      name: "ARNAB LAVALINK",
+      password: "arnab2345",
+      host: "5.39.63.207",
+      port: 3730,
+      secure: false
     }
   ]
 }

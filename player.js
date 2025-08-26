@@ -10,6 +10,199 @@ const path = require("path");
 const axios = require('axios');
 const { autoplayCollection } = require('./mongodb.js');
 const guildTrackMessages = new Map();
+const guildQueueEndMessages = new Map(); // Track queue end messages to prevent duplicates
+const guildAloneTimers = new Map(); // Track timers for when bot is alone in voice channel
+
+/**
+ * Sends a message with duplicate prevention and optional auto-deletion
+ * @param {Object} channel - Discord channel object
+ * @param {string} content - Message content
+ * @param {string} guildId - Guild ID for duplicate prevention
+ * @param {number} delay - Delay before sending (default: 500ms)
+ * @param {number} deleteAfter - Auto-delete after milliseconds (0 = don't delete)
+ */
+async function sendPersistentMessage(channel, content, guildId, delay = 500, deleteAfter = 0) {
+    // Create a unique key for this message type and guild
+    const messageKey = `${guildId}_${content}`;
+
+    // Check if we recently sent this exact message to prevent duplicates
+    const lastSent = guildQueueEndMessages.get(messageKey);
+    const now = Date.now();
+
+    if (lastSent && (now - lastSent) < 5000) { // Prevent duplicates within 5 seconds
+        console.log(`Prevented duplicate queue end message for guild ${guildId}`);
+        return;
+    }
+
+    // Mark this message as sent
+    guildQueueEndMessages.set(messageKey, now);
+
+    setTimeout(async () => {
+        try {
+            const message = await channel.send(content);
+            console.log(`Sent queue end message for guild ${guildId}: ${content}`);
+
+            // Auto-delete message if deleteAfter is specified
+            if (deleteAfter > 0) {
+                setTimeout(() => {
+                    message.delete().catch(() => {
+                        console.log(`Queue end message already deleted or couldn't delete for guild ${guildId}`);
+                    });
+                }, deleteAfter);
+            }
+
+            // Clean up old entries to prevent memory leaks (keep only last 10 minutes)
+            setTimeout(() => {
+                const cutoff = Date.now() - 600000; // 10 minutes ago
+                for (const [key, timestamp] of guildQueueEndMessages.entries()) {
+                    if (timestamp < cutoff) {
+                        guildQueueEndMessages.delete(key);
+                    }
+                }
+            }, 1000);
+
+        } catch (error) {
+            console.error("Error sending persistent message:", error);
+        }
+    }, delay);
+}
+
+/**
+ * Checks if the bot is alone in a voice channel and starts/stops the alone timer
+ * @param {Object} client - Discord client
+ * @param {string} guildId - Guild ID
+ * @param {string} voiceChannelId - Voice channel ID
+ */
+async function checkAloneStatus(client, guildId, voiceChannelId) {
+    try {
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return;
+
+        const voiceChannel = guild.channels.cache.get(voiceChannelId);
+        if (!voiceChannel) return;
+
+        // Count non-bot members in the voice channel
+        const humanMembers = voiceChannel.members.filter(member => !member.user.bot);
+        const isAlone = humanMembers.size === 0;
+
+        if (isAlone) {
+            // Bot is alone, start timer if not already started
+            if (!guildAloneTimers.has(guildId)) {
+                console.log(`🔊 ⏰ Bot is alone in voice channel ${voiceChannel.name} (${guildId}). Starting 10-minute auto-disconnect timer.`);
+
+                const timer = setTimeout(async () => {
+                    console.log(`🔊 ⏰ Timer expired! Calling handleAloneTimeout for guild ${guildId}`);
+                    await handleAloneTimeout(client, guildId, voiceChannelId);
+                }, 600000); // 10 minutes = 600,000 milliseconds
+
+                guildAloneTimers.set(guildId, {
+                    timer: timer,
+                    channelId: voiceChannelId,
+                    startTime: Date.now()
+                });
+
+                console.log(`🔊 ⏰ Timer set successfully for guild ${guildId}. Will trigger at: ${new Date(Date.now() + 600000).toLocaleTimeString()}`);
+            } else {
+                // Timer already exists, check how much time has passed
+                const existingTimer = guildAloneTimers.get(guildId);
+                const timeElapsed = Date.now() - existingTimer.startTime;
+                const timeRemaining = 600000 - timeElapsed; // 10 minutes - elapsed time
+
+                console.log(`🔊 ⏰ Bot still alone in voice channel ${voiceChannel.name} (${guildId}). Timer continues - ${Math.round(timeRemaining / 1000)}s remaining.`);
+
+                // If timer should have expired by now, trigger it manually (safety check)
+                if (timeRemaining <= 0) {
+                    console.log(`🔊 ⚠️ Timer should have expired! Triggering manual timeout for guild ${guildId}`);
+                    clearTimeout(existingTimer.timer);
+                    await handleAloneTimeout(client, guildId, voiceChannelId);
+                    return;
+                }
+            }
+        } else {
+            // Bot is not alone, clear timer if it exists
+            const aloneTimer = guildAloneTimers.get(guildId);
+            if (aloneTimer) {
+                console.log(`🔊 Someone joined voice channel ${voiceChannel.name} (${guildId}). Cancelling auto-disconnect timer.`);
+                clearTimeout(aloneTimer.timer);
+                guildAloneTimers.delete(guildId);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking alone status:', error);
+    }
+}
+
+/**
+ * Handles the timeout when bot has been alone for 10 minutes
+ * @param {Object} client - Discord client
+ * @param {string} guildId - Guild ID
+ * @param {string} voiceChannelId - Voice channel ID
+ */
+async function handleAloneTimeout(client, guildId, voiceChannelId) {
+    try {
+        console.log(`🔊 ⏰ AUTO-DISCONNECT TRIGGERED for guild ${guildId} after 10 minutes alone!`);
+
+        const player = client.riffy.players.get(guildId);
+        if (player) {
+            console.log(`🔊 Player found for guild ${guildId}, proceeding with disconnect...`);
+            const channel = client.channels.cache.get(player.textChannel);
+
+            // Clear voice channel status
+            await updateVoiceChannelStatus(client, voiceChannelId, "");
+            console.log(`🔊 Voice channel status cleared for ${voiceChannelId}`);
+
+            // Clean up track messages
+            await cleanupTrackMessages(client, player);
+            console.log(`🔊 Track messages cleaned up for guild ${guildId}`);
+
+            // Destroy player
+            player.destroy();
+            console.log(`🔊 Player destroyed for guild ${guildId}`);
+
+            // Send notification message
+            if (channel) {
+                sendPersistentMessage(
+                    channel,
+                    "🔇 **Auto-disconnected due to inactivity** - No one was in the voice channel for 10 minutes.",
+                    guildId,
+                    500,
+                    8000 // Delete after 8 seconds
+                );
+                console.log(`🔊 Auto-disconnect notification sent to channel ${channel.id}`);
+            }
+        } else {
+            console.log(`🔊 No player found for guild ${guildId}, timer cleanup only.`);
+        }
+
+        // Clean up the timer
+        guildAloneTimers.delete(guildId);
+        console.log(`🔊 Alone timer cleaned up for guild ${guildId}`);
+
+    } catch (error) {
+        console.error('Error handling alone timeout:', error);
+    }
+}
+
+/**
+ * Gets the alone timer status for a guild
+ * @param {string} guildId - Guild ID
+ * @returns {Object|null} - Timer info or null if no timer
+ */
+function getAloneTimerStatus(guildId) {
+    const timer = guildAloneTimers.get(guildId);
+    if (!timer) return null;
+
+    const timeElapsed = Date.now() - timer.startTime;
+    const timeRemaining = Math.max(0, 600000 - timeElapsed); // 10 minutes - elapsed
+
+    return {
+        isActive: true,
+        startTime: timer.startTime,
+        timeElapsed: timeElapsed,
+        timeRemaining: timeRemaining,
+        channelId: timer.channelId
+    };
+}
 
 async function sendMessageWithPermissionsCheck(channel, embed, attachment, actionRow1, actionRow2) {
     try {
@@ -87,6 +280,9 @@ function initializePlayer(client) {
                     songTitle = songTitle.substring(0, 27) + '...';
                 }
                 await updateVoiceChannelStatus(client, voiceChannel.id, `<a:pinkanimatedheart:1303818204912816230> ${songTitle}`);
+
+                // Check if bot is alone in voice channel
+                await checkAloneStatus(client, guildId, player.voiceChannel);
             }
         } catch (error) {
             console.error("Error updating voice channel status:", error.message);
@@ -179,7 +375,15 @@ function initializePlayer(client) {
 
     client.riffy.on("playerDisconnect", async (player) => {
         await cleanupTrackMessages(client, player);
-        
+
+        // Clear alone timer if exists
+        const aloneTimer = guildAloneTimers.get(player.guildId);
+        if (aloneTimer) {
+            clearTimeout(aloneTimer.timer);
+            guildAloneTimers.delete(player.guildId);
+            console.log(`🔊 Cleared alone timer for guild ${player.guildId} due to player disconnect.`);
+        }
+
         // Reset voice channel status when player disconnects
         try {
             const guild = client.guilds.cache.get(player.guildId);
@@ -195,7 +399,12 @@ function initializePlayer(client) {
     client.riffy.on("queueEnd", async (player) => {
         const channel = client.channels.cache.get(player.textChannel);
         const guildId = player.guildId;
-    
+
+        console.log(`🎵 Queue ended event triggered for guild: ${guildId}`);
+
+        // DON'T clear alone timer here - let it continue through autoplay
+        // Timer should only be cleared when player is destroyed or someone joins
+
         try {
             // Reset voice channel status when queue ends
             try {
@@ -214,21 +423,62 @@ function initializePlayer(client) {
                 const nextTrack = await player.autoplay(player);
     
                 if (!nextTrack) {
+                    // Clear alone timer since we're disconnecting
+                    const aloneTimer = guildAloneTimers.get(guildId);
+                    if (aloneTimer) {
+                        clearTimeout(aloneTimer.timer);
+                        guildAloneTimers.delete(guildId);
+                        console.log(`🔊 Cleared alone timer for guild ${guildId} due to autoplay end.`);
+                    }
+
+                    // Clean up track messages first
                     await cleanupTrackMessages(client, player);
+
+                    // Destroy player
                     player.destroy();
-                    await channel.send("⚠️ **No more tracks to autoplay. Disconnecting...**");
+
+                    // Send autoplay end message (auto-delete after 5 seconds)
+                    sendPersistentMessage(channel, "⚠️ **No more tracks to autoplay. Disconnecting...**", guildId, 500, 5000);
                 }
             } else {
-                await cleanupTrackMessages(client, player);
                 console.log(`Autoplay is disabled for guild: ${guildId}`);
+
+                // Clear alone timer since we're disconnecting
+                const aloneTimer = guildAloneTimers.get(guildId);
+                if (aloneTimer) {
+                    clearTimeout(aloneTimer.timer);
+                    guildAloneTimers.delete(guildId);
+                    console.log(`🔊 Cleared alone timer for guild ${guildId} due to queue end (autoplay disabled).`);
+                }
+
+                // Clean up track messages first
+                await cleanupTrackMessages(client, player);
+
+                // Destroy player
                 player.destroy();
-                await channel.send("🎶 **Queue has ended. Autoplay is disabled.**");
+
+                // Send queue end message (auto-delete after 5 seconds)
+                sendPersistentMessage(channel, "🎶 **Queue has ended. Autoplay is disabled.**", guildId, 500, 5000);
             }
         } catch (error) {
             console.error("Error handling autoplay:", error);
+
+            // Clear alone timer since we're disconnecting due to error
+            const aloneTimer = guildAloneTimers.get(guildId);
+            if (aloneTimer) {
+                clearTimeout(aloneTimer.timer);
+                guildAloneTimers.delete(guildId);
+                console.log(`🔊 Cleared alone timer for guild ${guildId} due to autoplay error.`);
+            }
+
+            // Clean up track messages first
             await cleanupTrackMessages(client, player);
+
+            // Destroy player
             player.destroy();
-            await channel.send("👾**Queue Empty! Disconnecting...**");
+
+            // Send error message (auto-delete after 5 seconds)
+            sendPersistentMessage(channel, "👾**Queue Empty! Disconnecting...**", guildId, 500, 5000);
         }
     });
 }
@@ -606,4 +856,4 @@ async function updateVoiceChannelStatus(client, channelId, status) {
     }
 }
 
-module.exports = { initializePlayer, formatDuration, updateVoiceChannelStatus };
+module.exports = { initializePlayer, formatDuration, updateVoiceChannelStatus, checkAloneStatus, getAloneTimerStatus };
