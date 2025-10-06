@@ -238,7 +238,7 @@ function initializePlayer(client) {
         password: node.password,
         secure: node.secure,
         reconnectTimeout: 5000,
-        reconnectTries: Infinity
+        reconnectTries: 3  // Let Riffy try 3 times quickly, then LavalinkManager takes over
     }));
 
     client.riffy = new Riffy(client, nodes, {
@@ -251,15 +251,17 @@ function initializePlayer(client) {
         },
         defaultSearchPlatform: "ytmsearch",
         restVersion: "v4",
+        autoResume: true,
     });
 
-    client.riffy.on("nodeConnect", node => {
-        console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.green}Node ${node.name} Connected ✅${colors.reset}`);
+    // Handle any unhandled errors to prevent crashes
+    client.riffy.on("error", (node, error) => {
+        console.error(`${colors.red}[ RIFFY ERROR ]${colors.reset} ${error.message}`);
+        // Error is logged but won't crash the bot
     });
-    
-    client.riffy.on("nodeError", (node, error) => {
-        console.log(`${colors.cyan}[ LAVALINK ]${colors.reset} ${colors.red}Node ${node.name} Error ❌ | ${error.message}${colors.reset}`);
-    });
+
+    // Note: Node connection events are now handled by LavalinkManager
+    // See lavalink-manager.js for node connection, disconnection, and error handling
 
     client.riffy.on("trackStart", async (player, track) => {
         const channel = client.channels.cache.get(player.textChannel);

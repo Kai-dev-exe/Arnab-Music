@@ -4,7 +4,25 @@ const fs = require("fs");
 const path = require('path');
 const { initializePlayer } = require('./player');
 const { connectToDatabase } = require('./mongodb');
+const { LavalinkManager } = require('./lavalink-manager');
 const colors = require('./UI/colors/colors');
+
+// Global error handlers to prevent crashes
+process.on('unhandledRejection', (reason, promise) => {
+    console.error(`${colors.red}[ UNHANDLED REJECTION ]${colors.reset}`, reason);
+    // Log but don't crash
+});
+
+process.on('uncaughtException', (error) => {
+    console.error(`${colors.red}[ UNCAUGHT EXCEPTION ]${colors.reset}`, error);
+    // Log but don't crash (be careful with this - only for WebSocket errors)
+    if (error.code === 'ECONNREFUSED' || error.syscall === 'connect') {
+        console.log(`${colors.yellow}[ INFO ]${colors.reset} Lavalink connection error - bot will keep trying to reconnect`);
+    } else {
+        // For other errors, we should probably crash
+        throw error;
+    }
+});
 
 const client = new Client({
     intents: Object.keys(GatewayIntentBits).map((a) => {
@@ -15,11 +33,29 @@ const client = new Client({
 client.config = config;
 initializePlayer(client);
 
+// Initialize Lavalink connection manager for automatic failover and persistent reconnection
+client.lavalinkManager = new LavalinkManager(client);
+
 client.on("ready", () => {
     console.log(`${colors.cyan}[ SYSTEM ]${colors.reset} ${colors.green}Client logged as ${colors.yellow}${client.user.tag}${colors.reset}`);
     console.log(`${colors.cyan}[ MUSIC ]${colors.reset} ${colors.green}Riffy Music System Ready 🎵${colors.reset}`);
     console.log(`${colors.cyan}[ TIME ]${colors.reset} ${colors.gray}${new Date().toISOString().replace('T', ' ').split('.')[0]}${colors.reset}`);
     client.riffy.init(client.user.id);
+
+    // Add error handlers to all nodes to prevent crashes
+    if (client.riffy.nodeMap) {
+        for (const [nodeName, node] of client.riffy.nodeMap) {
+            if (node.ws) {
+                node.ws.on('error', (error) => {
+                    console.error(`${colors.red}[ WEBSOCKET ERROR ]${colors.reset} Node "${nodeName}": ${error.message}`);
+                    // Error is logged but won't crash the bot
+                });
+            }
+        }
+    }
+
+    // Initialize Lavalink manager after Riffy is initialized
+    client.lavalinkManager.initialize();
 
     // Start periodic cleanup for voice channel statuses
     startVoiceStatusCleanup(client);

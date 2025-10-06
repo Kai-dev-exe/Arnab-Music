@@ -3,6 +3,7 @@ const config = require('../config.js');
 const musicIcons = require('../UI/icons/musicicons.js');
 const SpotifyWebApi = require('spotify-web-api-node');
 const { getData } = require('spotify-url-info')(require('node-fetch'));
+const { hasAvailableNodes, getNodesStatus } = require('../utils/nodeHelper.js');
 const requesters = new Map();
 
 
@@ -61,7 +62,22 @@ async function play(client, interaction, lang) {
             return;
         }
 
-        if (!client.riffy.nodes || client.riffy.nodes.size === 0) {
+        // Check if any nodes are available
+        if (!hasAvailableNodes(client)) {
+            const nodesStatus = getNodesStatus(client);
+            
+            let errorMessage = lang.play.embed.noLavalinkNodes;
+            
+            // Provide more helpful error message
+            if (nodesStatus.total > 0) {
+                errorMessage = `⚠️ **All Lavalink servers are currently offline!**\n\n` +
+                              `Total Nodes: ${nodesStatus.total}\n` +
+                              `Connected: ${nodesStatus.connected}\n` +
+                              `Disconnected: ${nodesStatus.disconnected}\n\n` +
+                              `The bot will automatically reconnect when servers are back online.\n` +
+                              `Please try again in a few moments.`;
+            }
+            
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
                 .setAuthor({
@@ -70,7 +86,7 @@ async function play(client, interaction, lang) {
                     url: config.SupportServer
                 })
                 .setFooter({ text: lang.footer, iconURL: musicIcons.heartIcon })
-                .setDescription(lang.play.embed.noLavalinkNodes);
+                .setDescription(errorMessage);
 
             await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
@@ -82,6 +98,11 @@ async function play(client, interaction, lang) {
             textChannel: interaction.channelId,
             deaf: true
         });
+        
+        // Log which node was selected
+        if (player && player.node) {
+            console.log(`🎵 [ PLAY ] Created player using node: ${player.node.name}`);
+        }
 
         await interaction.deferReply();
 
