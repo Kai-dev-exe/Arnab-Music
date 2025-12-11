@@ -23,35 +23,27 @@ module.exports = {
   webhookUrl: process.env.WEBHOOK_URL || "",  // Leave empty to disable webhook notifications
   nodes: [
     {
-       name: "ARINO",
-       password: "youshallnotpass",
-       host: "89.251.21.21",
-       port: 25577,
-       secure: false
-     },
-    
-    {
-      name: "Serenetia-LDP-NonSSL",
+      name: "Serenetia",
       password: "https://dsc.gg/ajidevserver",
-      host: "lavalink.serenetia.com",
+      host: "lavalinkv4.serenetia.com",
       port: 80,
       secure: false
     },
 
     {
-      name: "RY4N",
-      password: "youshallnotpass",
-      host: "mine.visionhost.cloud",
-      port: 2002,
+      name: "Ajieblogs",
+      password: "https://dsc.gg/ajidevserver",
+      host: "lava-v4.ajieblogs.eu.org",
+      port: 80,
       secure: false
     },
 
-    // {
-    //   name: "ARNAB LAVALINK",
-    //   password: "arnab2345",
-    //   host: "5.39.63.207",
-    //   port: 3730,
-    //   secure: false
-    // }
+     {
+       name: "Jirayu",
+       password: "youshallnotpass",
+       host: "lavalink.jirayu.net",
+       port: 13592,
+       secure: false
+    }
   ]
 }
